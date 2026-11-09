@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="kk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ЖИ-детектив / ИИ-детектив</title>
+<style>
+:root{--bg:#f6f4ef;--fg:#1d1d1f;--muted:#5f5f66;--card:#fff;--line:#dcd8cf;--accent:#2f5d8a;--ok:#1f7a4d;--okbg:#dff3e8;--no:#9a9a9f}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#16171a;--fg:#f1f1f3;--muted:#a3a3ab;--card:#212328;--line:#34363d;--accent:#7fb0e0;--ok:#5fd39a;--okbg:#173828;--no:#6d6d74}}
+:root[data-theme="dark"]{--bg:#16171a;--fg:#f1f1f3;--muted:#a3a3ab;--card:#212328;--line:#34363d;--accent:#7fb0e0;--ok:#5fd39a;--okbg:#173828;--no:#6d6d74}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--fg);font:clamp(16px,2.1vw,28px)/1.35 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;display:flex;flex-direction:column}
+main{flex:1;display:flex;flex-direction:column;justify-content:center;max-width:1200px;width:100%;margin:0 auto;padding:4vh 16px}
+.tag{color:var(--accent);font-weight:600;font-size:.75em;letter-spacing:.04em;text-transform:uppercase;margin-bottom:.6em}
+h1{font-size:2.2em;line-height:1.15;margin:0 0 .3em}
+h2{font-size:1.45em;line-height:1.2;margin:0}
+.ru{color:var(--muted);font-weight:400;margin-top:.25em;font-size:.85em}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:.6em;margin-top:1.2em}
+.opt{background:var(--card);border:2px solid var(--line);border-radius:12px;padding:.7em .9em;display:flex;gap:.6em;align-items:flex-start}
+.opt b{color:var(--accent);min-width:1.2em}
+.opt.ok{border-color:var(--ok);background:var(--okbg)}
+.opt.ok b{color:var(--ok)}
+.opt.dim{opacity:.45}
+.ex{margin-top:1em;background:var(--card);border-left:4px solid var(--ok);border-radius:8px;padding:.7em 1em;font-size:.8em}
+.ex p{margin:.2em 0}
+.ex .ru{font-size:1em}
+.timer{font-variant-numeric:tabular-nums;font-weight:700;color:var(--accent);font-size:1.1em}
+.top{display:flex;justify-content:space-between;align-items:baseline;gap:1em}
+ol.rules{padding-left:1.2em;margin:.8em 0 0}
+ol.rules li{margin-bottom:.7em}
+footer{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 16px;border-top:1px solid var(--line);font-size:14px;color:var(--muted)}
+button{font:inherit;font-size:15px;background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px 14px;cursor:pointer}
+button.primary{background:var(--accent);color:var(--bg);border-color:var(--accent)}
+@media (max-width:700px){.opts{grid-template-columns:1fr}h1{font-size:1.7em}}
+</style>
+</head>
+<body>
+<main id="app"></main>
+<footer>
+  <span id="pos"></span>
+  <span>← → / Space</span>
+  <span><button id="prev">←</button> <button id="next" class="primary">→</button></span>
+</footer>
+<script>
+const D=/*DATA*/null;
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const split=s=>{const i=s.indexOf(" / ");return i<0?[s,""]:[s.slice(0,i),s.slice(i+3)]};
+// steps
+const S=[{k:"intro"}];
+let lastRound=-1;
+D.q.forEach((q,i)=>{if(q.round!==lastRound){S.push({k:"round",r:q.round});lastRound=q.round}S.push({k:"q",i});S.push({k:"a",i})});
+S.push({k:"rules"});
+let cur=0,timer=null;
+const app=document.getElementById("app");
+function opts(q,reveal){return '<div class="opts">'+q.options.map((o,n)=>{const ok=q.correct.includes(n+1);const [a,b]=split(o);const cls=reveal?(ok?"ok":"dim"):"";return `<div class="opt ${cls}"><b>${"ABCDE"[n]}</b><div>${esc(a)}${b?`<div class="ru">${esc(b)}</div>`:""}</div></div>`}).join("")+"</div>"}
+function render(){
+  clearInterval(timer);
+  const s=S[cur];let h="";
+  if(s.k==="intro"){h=`<div class="tag">Интеллектуалдық ойын · Интеллектуальная игра</div><h1>ЖИ-детектив</h1><h2 class="ru">ИИ-детектив</h2><p style="margin-top:1.2em">Жасанды интеллект заманындағы мектеп кітапханасы:<br>жаңа мүмкіндіктер мен сын-қатерлер</p><p class="ru">10 сұрақ · 3 раунд · 15 минут</p>`}
+  else if(s.k==="round"){const [kz,ru]=D.rounds[s.r];h=`<div class="tag">${s.r+1} / 3</div><h1>${esc(kz)}</h1><h2 class="ru">${esc(ru)}</h2>`}
+  else if(s.k==="q"||s.k==="a"){const q=D.q[s.i];const rev=s.k==="a";
+    h=`<div class="top"><div class="tag">${s.i+1} / ${D.q.length}${q.type==="cb"?" · бірнеше жауап / несколько ответов":""}</div>${rev?"":`<div class="timer" id="t">${q.time}</div>`}</div><h2>${esc(q.kz)}</h2><div class="ru">${esc(q.ru)}</div>${opts(q,rev)}`;
+    if(rev)h+=`<div class="ex"><p>${esc(q.ex_kz)}</p><p class="ru">${esc(q.ex_ru)}</p></div>`;
+  }
+  else{h=`<div class="tag">Қорытынды · Итог</div><h1>3 ереже / 3 правила</h1><ol class="rules">${D.rules.map(([a,b])=>`<li>${esc(a)}<div class="ru">${esc(b)}</div></li>`).join("")}</ol>`}
+  app.innerHTML=h;
+  document.getElementById("pos").textContent=(cur+1)+" / "+S.length;
+  if(s.k==="q"){let t=D.q[s.i].time;const el=document.getElementById("t");timer=setInterval(()=>{t--;el.textContent=Math.max(t,0);if(t<=0){clearInterval(timer);el.textContent="⏰"}},1000)}
+}
+const go=d=>{cur=Math.min(S.length-1,Math.max(0,cur+d));render()};
+document.getElementById("next").onclick=()=>go(1);
+document.getElementById("prev").onclick=()=>go(-1);
+addEventListener("keydown",e=>{if(["ArrowRight"," ","PageDown","Enter"].includes(e.key)){e.preventDefault();go(1)}if(["ArrowLeft","PageUp"].includes(e.key)){e.preventDefault();go(-1)}});
+render();
+</script>
+</body>
+</html>
